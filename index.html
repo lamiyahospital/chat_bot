@@ -375,7 +375,7 @@ button:active,
   mix-blend-mode: screen;
   opacity: 0.68;
   filter: blur(0.3px) drop-shadow(0 0 14px rgba(127, 245, 255, 0.8));
-  animation: robotBlink 5.2s infinite;
+  animation: robotEye 5.2s ease-in-out infinite;
 }
 
 .eye-left {
@@ -857,6 +857,132 @@ button:active,
   }
 }
 
+
+/* Smile overlay */
+.smile {
+  position: absolute;
+  top: 47%;
+  left: 50%;
+  width: 12%;
+  height: 4%;
+  transform: translate(-50%, 0);
+  border-bottom: 3px solid rgba(255, 120, 210, 0.85);
+  border-radius: 0 0 60% 60% / 0 0 100% 100%;
+  filter: drop-shadow(0 0 6px rgba(217, 70, 239, 0.55));
+  opacity: 0.75;
+  mix-blend-mode: screen;
+  animation: robotSmile 4.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes robotEye {
+  0%, 40%, 55%, 100% { transform: translate(0,0) scaleY(1); }
+  20% { transform: translate(2px, 0) scaleY(1); }
+  30% { transform: translate(-2px, 0) scaleY(1); }
+  46% { transform: translate(0, 0) scaleY(0.08); }
+  70% { transform: translate(0, 1px) scaleY(1); }
+  85% { transform: translate(-1.5px, -1px) scaleY(1); }
+}
+
+@keyframes robotSmile {
+  0%, 100% { transform: translate(-50%, 0) scaleX(1) scaleY(1); border-radius: 0 0 60% 60% / 0 0 100% 100%; }
+  30% { transform: translate(-50%, -1px) scaleX(1.15) scaleY(1.4); }
+  55% { transform: translate(-50%, 1px) scaleX(0.9) scaleY(0.8); }
+  75% { transform: translate(-50%, 0) scaleX(1.05) scaleY(1.1); }
+}
+
+/* Smartphone friendliness */
+@media (max-width: 640px) {
+  body {
+    font-size: 15px;
+  }
+  .app-shell {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  h1 {
+    font-size: 1.3rem;
+  }
+  .topbar {
+    padding: 12px;
+    gap: 10px;
+  }
+  .topbar-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .icon-button {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+  }
+  .tool-row {
+    gap: 6px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 6px;
+  }
+  .tool-row::-webkit-scrollbar { display: none; }
+  .tool-row button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+  .composer {
+    display: grid;
+    grid-template-columns: 40px 1fr 40px;
+    grid-template-rows: auto auto;
+    gap: 6px;
+    padding: 6px;
+  }
+  .composer input {
+    height: 40px;
+    padding: 0 10px;
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .composer #voiceInput { grid-column: 1; grid-row: 1; }
+  .composer #speakToggle { grid-column: 3; grid-row: 1; }
+  .send-button {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    min-height: 44px;
+  }
+  .send-button span { display: inline; }
+  .chat-messages { min-height: 220px; }
+  .message { max-width: 96%; }
+  .bubble { padding: 11px 13px; font-size: 0.95rem; }
+  .header-actions { gap: 6px; }
+  .text-button { padding: 0 10px; min-height: 36px; font-size: 0.82rem; }
+}
+
+@media (max-width: 380px) {
+  .topbar h1 { font-size: 1.15rem; }
+  .robot-card { width: min(280px, 92vw); }
+  .robot-stage { min-height: 260px; }
+}
+
+/* SVG icon defaults */
+.icon-button svg, .text-button svg, .send-button svg, .status-pill svg {
+  display: block;
+  color: currentColor;
+}
+.text-button, .send-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+/* Theme icon swap */
+.ic-moon { display: none; }
+[data-theme="dark"] .ic-sun { display: none; }
+[data-theme="dark"] .ic-moon { display: block; }
+
 </style>
   </head>
   <body>
@@ -873,13 +999,13 @@ button:active,
           <p>Your Smart Hospital Guide</p>
         </div>
         <div class="topbar-actions">
-          <span class="status-pill"><span></span> Offline Mode</span>
-          <button class="icon-button" id="themeToggle" type="button" title="Toggle theme" aria-label="Toggle theme">â—</button>
-          <button class="icon-button" id="installButton" type="button" title="Install app" aria-label="Install app">â‡©</button>
+          <span class="status-pill"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><line x1="12" y1="20" x2="12.01" y2="20"/><line x1="2" y1="2" x2="22" y2="22"/></svg> Offline Mode</span>
+          <button class="icon-button" id="themeToggle" type="button" title="Toggle theme" aria-label="Toggle theme"><svg class="ic ic-sun" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg><svg class="ic ic-moon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
+          <button class="icon-button" id="installButton" type="button" title="Install app" aria-label="Install app"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m6 9 6 6 6-6"/><path d="M5 21h14"/></svg></button>
         </div>
       </nav>
 
-      <section class="hero-area" aria-label="Lamiya AI Assistant">
+    <section class="hero-area" aria-label="Lamiya AI Assistant">
         <aside class="robot-stage" aria-label="Floating robot assistant">
           <div class="robot-glow"></div>
           <div class="robot-card">
@@ -895,8 +1021,8 @@ button:active,
               <h2>How may I help you today?</h2>
             </div>
             <div class="header-actions">
-              <button class="text-button" id="clearChat" type="button">Clear</button>
-              <button class="text-button" id="downloadChat" type="button">Download</button>
+              <button class="text-button" id="clearChat" type="button" aria-label="Clear chat"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg><span>Clear</span></button>
+              <button class="text-button" id="downloadChat" type="button" aria-label="Download chat"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg><span>Download</span></button>
             </div>
           </header>
 
@@ -923,10 +1049,10 @@ button:active,
           <div class="suggestions" id="suggestions" aria-label="Suggested questions"></div>
 
           <form class="composer" id="chatForm">
-            <button class="icon-button" id="voiceInput" type="button" title="Voice input" aria-label="Voice input">â—Ž</button>
+            <button class="icon-button" id="voiceInput" type="button" title="Voice input" aria-label="Voice input"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/><path d="M8 21h8"/></svg></button>
             <input id="messageInput" autocomplete="off" placeholder="Ask about doctors, timings, lab, appointments...">
-            <button class="icon-button" id="speakToggle" type="button" title="Voice output" aria-label="Voice output">â™ª</button>
-            <button class="send-button" type="submit">Send</button>
+            <button class="icon-button" id="speakToggle" type="button" title="Voice output" aria-label="Voice output"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></button>
+            <button class="send-button" type="submit" aria-label="Send"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg><span>Send</span></button>
           </form>
 
           <footer class="app-footer">
