@@ -37,6 +37,13 @@
   --shadow: 0 34px 100px rgba(0, 0, 0, 0.34);
 }
 
+html[lang="ml"] body,
+html[lang="ml"] button,
+html[lang="ml"] input,
+html[lang="ml"] select {
+  font-family: "Noto Sans Malayalam", "Nirmala UI", var(--font);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -440,10 +447,11 @@ button:active,
   display: flex;
   flex-direction: column;
   min-height: min(760px, calc(100vh - 142px));
-  max-height: 820px;
+  height: auto;
+  max-height: none;
   border-radius: var(--radius-xl);
   padding: 18px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .chat-header {
@@ -506,11 +514,24 @@ button:active,
 }
 
 .chat-messages {
-  flex: 1 1 auto;
+  /* Keep messages in normal flow so new replies push the controls below them. */
+  display: block;
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  height: auto;
   min-height: 280px;
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
   padding: 8px 4px 12px;
   scroll-behavior: smooth;
+}
+
+/* Ensure suggestions + composer stay in normal flow below the transcript */
+.suggestions,
+.composer {
+  position: static;
+  flex: 0 0 auto;
+  flex-shrink: 0;
 }
 
 .chat-messages::-webkit-scrollbar {
@@ -623,6 +644,34 @@ button:active,
 .suggestions {
   min-height: 42px;
   padding: 4px 0 12px;
+}
+
+.language-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid rgba(191, 26, 138, 0.14);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.42);
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 760;
+}
+
+.language-switch select {
+  min-width: 104px;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  outline: 0;
+  cursor: pointer;
+}
+
+[data-theme="dark"] .language-switch {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .composer {
@@ -823,6 +872,7 @@ button:active,
   .header-actions {
     width: 100%;
     justify-content: space-between;
+    flex-wrap: wrap;
   }
 
   .status-pill {
@@ -1021,6 +1071,7 @@ button:active,
               <h2>How may I help you today?</h2>
             </div>
             <div class="header-actions">
+              <label class="language-switch" for="languageSelect"><span id="languageLabel">Language</span><select id="languageSelect" aria-label="Choose language"><option value="en">English</option><option value="ml">Malayalam</option></select></label>
               <button class="text-button" id="clearChat" type="button" aria-label="Clear chat"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg><span>Clear</span></button>
               <button class="text-button" id="downloadChat" type="button" aria-label="Download chat"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg><span>Download</span></button>
             </div>
@@ -1164,6 +1215,7 @@ const quickSuggestions = [
 const state = {
   speechEnabled: localStorage.getItem("lamiya-speech") === "true",
   deferredInstall: null,
+  language: localStorage.getItem("lamiya-language") || "en",
   messages: loadMessages()
 };
 
@@ -1173,6 +1225,8 @@ const els = {
   messages: document.getElementById("chatMessages"),
   form: document.getElementById("chatForm"),
   input: document.getElementById("messageInput"),
+  languageSelect: document.getElementById("languageSelect"),
+  languageLabel: document.getElementById("languageLabel"),
   typing: document.getElementById("typingIndicator"),
   suggestions: document.getElementById("suggestions"),
   historySearch: document.getElementById("historySearch"),
@@ -1191,7 +1245,7 @@ document.addEventListener("DOMContentLoaded", init);
 function init() {
   setTimeout(() => els.loading.classList.add("is-hidden"), 650);
   applyTheme(localStorage.getItem("lamiya-theme") || "light");
-  renderSuggestions();
+  applyLanguage(state.language);
   renderMessages();
 
   if (state.messages.length === 0) {
@@ -1206,6 +1260,7 @@ function init() {
     const button = event.target.closest("button[data-query]");
     if (button) ask(button.dataset.query);
   });
+  els.languageSelect.addEventListener("change", () => applyLanguage(els.languageSelect.value));
   els.clearChat.addEventListener("click", clearChat);
   els.downloadChat.addEventListener("click", downloadChat);
   els.historySearch.addEventListener("input", filterMessages);
@@ -1236,7 +1291,9 @@ function init() {
 }
 
 function welcomeMessage() {
-  return "Hello.\n\nWelcome to Lamiya Hospital.\n\nI am your virtual hospital assistant. I can help you with doctors, departments, timings, laboratory, appointments, directions, contact details, services, and careers.\n\nHow may I help you today?";
+  return state.language === "ml"
+    ? "നമസ്കാരം.\n\nലാമിയ ആശുപത്രിയിലേക്ക് സ്വാഗതം.\n\nഞാൻ നിങ്ങളുടെ വെർച്വൽ ആശുപത്രി സഹായിയാണ്. ഡോക്ടർമാർ, വിഭാഗങ്ങൾ, സമയങ്ങൾ, ലബോറട്ടറി, അപ്പോയിന്റ്മെന്റുകൾ, വഴികാട്ടൽ, ബന്ധപ്പെടാനുള്ള വിവരങ്ങൾ, സേവനങ്ങൾ, തൊഴിൽ അവസരങ്ങൾ എന്നിവയിൽ ഞാൻ സഹായിക്കും.\n\nഇന്ന് ഞാൻ എങ്ങനെ സഹായിക്കാം?"
+    : "Hello.\n\nWelcome to Lamiya Hospital.\n\nI am your virtual hospital assistant. I can help you with doctors, departments, timings, laboratory, appointments, directions, contact details, services, and careers.\n\nHow may I help you today?";
 }
 
 function onSubmit(event) {
@@ -1248,19 +1305,21 @@ function onSubmit(event) {
 
 function ask(text) {
   els.input.value = "";
-  addMessage("user", text);
+  const language = getReplyLanguage(text);
+  addMessage("user", text, [], language);
   showTyping(true);
   window.setTimeout(() => {
-    const response = findAnswer(text);
+    const response = findAnswer(text, language);
     showTyping(false);
-    addAssistantMessage(response.text, response.actions);
+    addAssistantMessage(response.text, response.actions, language);
   }, Math.min(900, Math.max(420, text.length * 14)));
 }
 
-function addAssistantMessage(text, actions = []) {
-  addMessage("assistant", text, actions);
+function addAssistantMessage(text, actions = [], language = state.language) {
+  addMessage("assistant", text, actions, language);
   if (state.speechEnabled && "speechSynthesis" in window) {
     const utterance = new SpeechSynthesisUtterance(text.replace(/\n/g, ". "));
+    utterance.lang = language === "ml" ? "ml-IN" : "en-IN";
     utterance.rate = 0.95;
     utterance.pitch = 1.02;
     window.speechSynthesis.cancel();
@@ -1268,12 +1327,13 @@ function addAssistantMessage(text, actions = []) {
   }
 }
 
-function addMessage(role, text, actions = []) {
+function addMessage(role, text, actions = [], language = getReplyLanguage(text)) {
   const message = {
     id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
     role,
     text,
     actions,
+    language,
     time: new Date().toISOString()
   };
   state.messages.push(message);
@@ -1302,7 +1362,7 @@ function renderMessages(list = state.messages) {
         link.href = action.href;
         link.target = action.external ? "_blank" : "_self";
         link.rel = "noreferrer";
-        link.textContent = action.label;
+        link.textContent = actionLabel(action.label, message.language || (hasMalayalam(message.text) ? "ml" : "en"));
         actionWrap.appendChild(link);
       });
       bubble.appendChild(actionWrap);
@@ -1310,15 +1370,19 @@ function renderMessages(list = state.messages) {
 
     const meta = document.createElement("div");
     meta.className = "meta";
-    meta.textContent = `${message.role === "user" ? "You" : "Assistant"} â€¢ ${formatTime(message.time)}`;
+    const messageLanguage = message.language || (hasMalayalam(message.text) ? "ml" : "en");
+    const roleLabel = messageLanguage === "ml"
+      ? (message.role === "user" ? "നിങ്ങൾ" : "സഹായി")
+      : (message.role === "user" ? "You" : "Assistant");
+    meta.textContent = `${roleLabel} • ${formatTime(message.time)}`;
     item.appendChild(meta);
 
     const actions = document.createElement("div");
     actions.className = "message-actions";
     const copy = document.createElement("button");
     copy.type = "button";
-    copy.textContent = "Copy";
-    copy.addEventListener("click", () => copyMessage(message.text, copy));
+    copy.textContent = messageLanguage === "ml" ? "പകർത്തുക" : "Copy";
+    copy.addEventListener("click", () => copyMessage(message.text, copy, messageLanguage));
     actions.appendChild(copy);
     item.appendChild(actions);
 
@@ -1329,16 +1393,16 @@ function renderMessages(list = state.messages) {
 
 function renderSuggestions() {
   els.suggestions.innerHTML = "";
-  quickSuggestions.forEach(question => {
+  suggestionLabels().forEach(({ label, query }) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.dataset.query = question;
-    button.textContent = question;
+    button.dataset.query = query;
+    button.textContent = label;
     els.suggestions.appendChild(button);
   });
 }
 
-function findAnswer(input) {
+function findEnglishAnswer(input) {
   const normalized = normalize(input);
 
   // Greetings
@@ -1375,8 +1439,8 @@ function findAnswer(input) {
   }
 
   // Identity / developer
-  if (matchesAny(normalized, ["who made you", "who created you", "who built you", "who developed you", "developer", "your developer", "your creator"])) {
-    return { text: "I was designed for Lamiya Hospital and developed by Sijo Ummachan." };
+  if (matchesAny(normalized, ["who made you", "who created you", "who built you", "who developed you", "who invented you", "who designed you", "who programmed you", "developer", "your developer", "your creator", "inventor", "invented", "built", "developed", "created"])) {
+    return { text: "This chatbot was developed by Sijo Ummachan." };
   }
 
   // Jokes
@@ -1480,6 +1544,230 @@ function findAnswer(input) {
   return {
     text: "I'm sorry, I don't have information about that yet. Please ask me about Lamiya Hospital, its doctors, departments, services, timings, or contact information."
   };
+}
+
+const languageUi = {
+  en: {
+    assistantName: "Lamiya AI Assistant",
+    brand: "Lamiya Hospital",
+    tagline: "Your Smart Hospital Guide",
+    offline: "Offline Mode",
+    chatEyebrow: "Offline hospital guide",
+    chatTitle: "How may I help you today?",
+    language: "Language",
+    clear: "Clear",
+    download: "Download",
+    search: "Search",
+    searchPlaceholder: "Search previous messages",
+    inputPlaceholder: "Ask about doctors, timings, lab, appointments...",
+    send: "Send",
+    footer: "Made with love by Sijo Ummachan",
+    tools: ["Doctors", "Dental", "Dermatology", "Laboratory", "Appointment", "Contact"]
+  },
+  ml: {
+    assistantName: "ലാമിയ AI അസിസ്റ്റന്റ്",
+    brand: "ലാമിയ ആശുപത്രി",
+    tagline: "നിങ്ങളുടെ സ്മാർട്ട് ആശുപത്രി സഹായി",
+    offline: "ഓഫ്‌ലൈൻ മോഡ്",
+    chatEyebrow: "ഓഫ്‌ലൈൻ ആശുപത്രി സഹായി",
+    chatTitle: "ഇന്ന് ഞാൻ എങ്ങനെ സഹായിക്കാം?",
+    language: "ഭാഷ",
+    clear: "മായ്‌ക്കുക",
+    download: "ഡൗൺലോഡ്",
+    search: "തിരയുക",
+    searchPlaceholder: "മുമ്പത്തെ സന്ദേശങ്ങൾ തിരയുക",
+    inputPlaceholder: "ഡോക്ടർമാർ, സമയങ്ങൾ, ലാബ്, അപ്പോയിന്റ്മെന്റ് എന്നിവയെക്കുറിച്ച് ചോദിക്കൂ...",
+    send: "അയയ്ക്കുക",
+    footer: "Sijo Ummachan സ്നേഹത്തോടെ നിർമ്മിച്ചത്",
+    tools: ["ഡോക്ടർമാർ", "ദന്തവിഭാഗം", "ത്വക്ക് വിഭാഗം", "ലബോറട്ടറി", "അപ്പോയിന്റ്മെന്റ്", "ബന്ധപ്പെടുക"]
+  }
+};
+
+const toolQueries = ["Show all doctors", "Dental department", "Skin doctors", "Lab timing", "Book appointment", "Contact number"];
+
+function hasMalayalam(value) {
+  return /[\u0D00-\u0D7F]/.test(String(value));
+}
+
+function getReplyLanguage(input) {
+  const value = String(input);
+  if (hasMalayalam(value) || /\b(?:in Malayalam|Malayalam please)\b/i.test(value)) return "ml";
+  if (/\b(?:in English|English please)\b/i.test(value)) return "en";
+  return state.language === "ml" ? "ml" : "en";
+}
+
+function containsOne(text, terms) {
+  return terms.some(term => text.includes(term));
+}
+
+function canonicalizeMalayalam(input) {
+  if (!hasMalayalam(input)) return input;
+  const value = String(input).toLowerCase();
+  const intents = [
+    [["വികസിപ്പ", "നിർമ്മി", "സൃഷ്ടി", "ഉണ്ടാക്കി", "ഡെവലപ്പ", "കണ്ടുപിടി"], "who developed you"],
+    [["നമസ്കാരം", "ഹലോ", "ഹായ്", "സുപ്രഭാതം", "ശുഭ സായാഹ്നം"], "hello"],
+    [["നന്ദി", "താങ്ക്സ്"], "thank you"],
+    [["വിട", "ബൈ"], "goodbye"],
+    [["എല്ലാ ഡോക്ട", "ഡോക്ടർമാരുടെ പട്ടിക", "ഡോക്ടർ ലിസ്റ്റ്"], "show all doctors"],
+    [["ദന്ത ഡോക്ട", "പല്ല് ഡോക്ട", "ഡെന്റൽ ഡോക്ട"], "dental doctors"],
+    [["ത്വക്ക് ഡോക്ട", "ചർമ്മ ഡോക്ട", "സ്കിൻ ഡോക്ട"], "skin doctors"],
+    [["ജനറൽ മെഡിസിൻ ഡോക്ട", "ഫിസിഷ്യൻ"], "general medicine doctor"],
+    [["റൂട്ട് കനാൽ"], "root canal"],
+    [["പല്ലുവേദന", "പല്ല് വേദന"], "tooth pain"],
+    [["ബ്രേസസ്", "ഓർത്തോഡോണ്ട"], "braces"],
+    [["ഇംപ്ലാന്റ"], "implants"],
+    [["സ്കെയിലിംഗ്", "പല്ല് വൃത്തിയ"], "scaling"],
+    [["മുടി കൊഴിച്ചിൽ", "ഹെയർ ലോസ്"], "hair loss"],
+    [["മുഖക്കുരു", "അക്‌നെ", "ആക്‌നെ"], "acne"],
+    [["അലർജി", "എക്സിമ", "സോറിയാസിസ്", "വിറ്റിലിഗോ"], "skin allergy"],
+    [["പ്രമേഹം", "ഡയബറ്റ"], "diabetes"],
+    [["രക്തസമ്മർദ്ദം", "ബിപി", "ഹൈപ്പർടെൻഷ"], "hypertension"],
+    [["പനി", "വൈറൽ"], "fever"],
+    [["വാക്സിൻ", "പ്രതിരോധ കുത്തിവെപ്പ്"], "vaccination"],
+    [["അടിയന്തിര", "എമർജൻസി", "അപകട"], "emergency"],
+    [["ലാബ്", "ലബോറട്ട", "രക്ത പരിശോധന", "യൂറിൻ", "റിപ്പോർട്ട്", "സാമ്പിൾ"], "lab timing"],
+    [["അപ്പോയിന്റ്മെന്റ്", "ബുക്കിംഗ്", "ടോക്കൺ", "കൺസൾട്ടേഷൻ"], "book appointment"],
+    [["വാട്സാപ്പ്", "വാട്ട്സാപ്പ്"], "whatsapp number"],
+    [["ഫോൺ", "നമ്പർ", "വിളിക്ക", "ബന്ധപ്പെട"], "contact number"],
+    [["ഇമെയിൽ", "മെയിൽ"], "email"],
+    [["ഇൻസ്റ്റഗ്രാം"], "instagram"],
+    [["ലിങ്ക്ഡിൻ"], "linkedin"],
+    [["സമയം", "തുറക്ക", "അടക്ക", "പ്രവർത്തന സമയം", "ടൈമിംഗ്"], "timing"],
+    [["വിലാസം", "സ്ഥലം", "എവിട", "ലൊക്കേഷൻ", "മാപ്പ്"], "location"],
+    [["സേവന", "സൗകര്യ", "ഫെസിലിറ്റി"], "services"],
+    [["ഫാർമസി", "മരുന്ന്"], "pharmacy"],
+    [["ജോലി", "ഒഴിവ്", "കരിയർ", "റിസ്യൂമെ"], "careers"],
+    [["പരാതി", "നിർദ്ദേശം", "ഫീഡ്ബാക്ക്"], "feedback"],
+    [["ഇൻഷുറൻസ്", "ക്ലെയിം"], "insurance"],
+    [["അഡ്മിഷൻ", "ഡിസ്ചാർജ്", "സന്ദർശന സമയം"], "admission"],
+    [["വീൽചെയർ", "വയോധിക", "ഭിന്നശേഷി"], "wheelchair"],
+    [["ദന്ത", "ഡെന്റൽ", "പല്ല്"], "dental department"],
+    [["ത്വക്ക്", "ചർമ്മ", "സ്കിൻ", "ഡെർമറ്റോള"], "dermatology department"],
+    [["ജനറൽ മെഡിസിൻ", "മെഡിസിൻ വിഭാഗം"], "general medicine department"]
+  ];
+  const matched = intents.find(([terms]) => containsOne(value, terms));
+  return matched ? matched[1] : "hospital information";
+}
+
+function findAnswer(input, language = getReplyLanguage(input)) {
+  const canonicalInput = language === "ml" ? canonicalizeMalayalam(input) : input;
+  const englishResponse = findEnglishAnswer(canonicalInput);
+  return language === "ml" ? findMalayalamAnswer(canonicalInput, englishResponse) : englishResponse;
+}
+
+function doctorListMalayalam(department = null) {
+  const departmentNames = { Dental: "ദന്തവിഭാഗം", Dermatology: "ത്വക്ക് വിഭാഗം", "General Medicine": "ജനറൽ മെഡിസിൻ" };
+  const chosen = department ? doctors.filter(doctor => doctor.department === department) : doctors;
+  return chosen.map(doctor => `${doctor.name} - ${departmentNames[doctor.department]}\n${doctor.qualification}\n${doctor.designation}, ${doctor.experience}\nലഭ്യത: ${doctor.availability}\nറൂം: ${doctor.room}, എക്സ്റ്റൻഷൻ: ${doctor.extension}`).join("\n\n");
+}
+
+function findMalayalamAnswer(input, englishResponse) {
+  const query = String(input).toLowerCase();
+  const response = text => ({ text, actions: englishResponse.actions || [] });
+
+  if (containsOne(query, ["developed", "made you", "created you", "built you", "invented", "developer", "creator", "programmed"])) return response("ഈ ചാറ്റ്ബോട്ട് വികസിപ്പിച്ചത് Sijo Ummachan ആണ്.");
+  if (containsOne(query, ["good morning"])) return response("സുപ്രഭാതം! ☀️ ലാമിയ ആശുപത്രിയിലേക്ക് സ്വാഗതം. ഇന്ന് ഞാൻ എങ്ങനെ സഹായിക്കാം?");
+  if (containsOne(query, ["good afternoon", "good evening", "hello", " hi", "hey"])) return response("നമസ്കാരം! 👋 ലാമിയ ആശുപത്രിയിലേക്ക് സ്വാഗതം. ഇന്ന് ഞാൻ എങ്ങനെ സഹായിക്കാം?");
+  if (containsOne(query, ["thank", "thanks"])) return response("നന്ദി! 😊 ലാമിയ ആശുപത്രിയെക്കുറിച്ച് കൂടുതൽ സഹായം വേണമെങ്കിൽ ഞാൻ ഇവിടെയുണ്ട്.");
+  if (containsOne(query, ["goodbye", "bye"])) return response("വിട! 👋 ലാമിയ ആശുപത്രി സന്ദർശിച്ചതിന് നന്ദി. ആരോഗ്യത്തോടെ ഇരിക്കൂ!");
+  if (containsOne(query, ["who are you", "your name", "about yourself"])) return response("ഞാൻ ലാമിയ AI അസിസ്റ്റന്റാണ്—ലാമിയ ആശുപത്രിയുടെ ഓഫ്‌ലൈൻ വെർച്വൽ ഗൈഡ്. ഡോക്ടർമാർ, വിഭാഗങ്ങൾ, വഴികാട്ടൽ, സമയങ്ങൾ, സേവനങ്ങൾ, ബന്ധപ്പെടാനുള്ള വിവരങ്ങൾ എന്നിവയിൽ ഞാൻ സഹായിക്കും.");
+
+  if (containsOne(query, ["all doctors", "show doctors", "doctor list"])) return response(`ലഭ്യമായ ഡോക്ടർമാർ:\n\n${doctorListMalayalam()}`);
+  if (containsOne(query, ["dental doctors", "dentist"])) return response(`ദന്തവിഭാഗത്തിലെ ഡോക്ടർമാർ:\n\n${doctorListMalayalam("Dental")}`);
+  if (containsOne(query, ["skin doctors", "dermatology doctor"])) return response(`ത്വക്ക് വിഭാഗത്തിലെ ഡോക്ടർമാർ:\n\n${doctorListMalayalam("Dermatology")}`);
+  if (containsOne(query, ["general medicine doctor", "physician"])) return response(`ജനറൽ മെഡിസിൻ ഡോക്ടർമാർ:\n\n${doctorListMalayalam("General Medicine")}`);
+
+  if (containsOne(query, ["dental department", "dental services"])) return response("ദന്തവിഭാഗം\n\nദിശ: ഗ്രൗണ്ട് ഫ്ലോറിൽ, റിസപ്ഷന് ശേഷം ഇടതുവശം.\n\nസേവനങ്ങൾ: കൺസൾട്ടേഷൻ, റൂട്ട് കനാൽ, ബ്രേസസ്, ഓർത്തോഡോണ്ടിക്സ്, ഇംപ്ലാന്റുകൾ, സ്കെയിലിംഗ്, ക്രൗൺ, ഡെൻചർ, ഓറൽ സർജറി, അടിയന്തര ദന്തപരിചരണം.");
+  if (containsOne(query, ["dermatology", "skin department"])) return response("ത്വക്ക് വിഭാഗം\n\nദിശ: ഒന്നാം നിലയിൽ. സെന്റർ ലോബിയിൽ നിന്ന് ലിഫ്റ്റ് ലഭ്യമാണ്.\n\nസേവനങ്ങൾ: മുഖക്കുരു, മുടി കൊഴിച്ചിൽ, ചർമ്മ അലർജി, പിഗ്മെന്റേഷൻ, PRP, ബോട്ടോക്സ്, കെമിക്കൽ പീൽ, ലേസർ, സോറിയാസിസ്, വിറ്റിലിഗോ, എക്സിമ, നഖരോഗങ്ങൾ.");
+  if (containsOne(query, ["general medicine department"])) return response("ജനറൽ മെഡിസിൻ വിഭാഗം\n\nദിശ: ഗ്രൗണ്ട് ഫ്ലോറിന്റെ വലതുവശം.\n\nസേവനങ്ങൾ: പനി, പ്രമേഹം, രക്തസമ്മർദ്ദം, ആസ്ത്മ, തൈറോയ്ഡ്, വൈറൽ പനി, റൂട്ടീൻ ചെക്കപ്പ്, വാക്സിനേഷൻ, ഹെൽത്ത് ചെക്കപ്പ്, മെഡിക്കൽ കൺസൾട്ടേഷൻ.");
+
+  if (containsOne(query, ["root canal"])) return response("റൂട്ട് കനാൽ ചികിത്സ ദന്തവിഭാഗത്തിൽ ലഭ്യമാണ്. പരിശോധനയ്ക്കും ചികിത്സാ പദ്ധതിക്കും ദന്ത ഡോക്ടറുടെ അപ്പോയിന്റ്മെന്റ് എടുക്കുക.");
+  if (containsOne(query, ["tooth pain"])) return response("പല്ലുവേദനയ്ക്ക് ദന്തവിഭാഗം സന്ദർശിക്കുക. അടിയന്തര ദന്തപരിചരണവും ലഭ്യമാണ്.");
+  if (containsOne(query, ["braces", "orthodontics"])) return response("ബ്രേസസും ഓർത്തോഡോണ്ടിക് ചികിത്സയും ദന്തവിഭാഗത്തിലൂടെ ലഭ്യമാണ്.");
+  if (containsOne(query, ["implants"])) return response("ഡെന്റൽ ഇംപ്ലാന്റ് കൺസൾട്ടേഷൻ ലഭ്യമാണ്. അനുയോജ്യതയും ചികിത്സാ പദ്ധതിയും അറിയാൻ ഇംപ്ലാന്റ് ഡോക്ടറെ കാണുക.");
+  if (containsOne(query, ["scaling"])) return response("ദന്ത സ്കെയിലിംഗും ക്ലീനിംഗും ദന്തവിഭാഗത്തിൽ ലഭ്യമാണ്.");
+  if (containsOne(query, ["acne"])) return response("മുഖക്കുരുവിന് ത്വക്ക് വിഭാഗത്തിൽ കൺസൾട്ടേഷനും ചികിത്സയും ലഭ്യമാണ്.");
+  if (containsOne(query, ["hair loss"])) return response("മുടി കൊഴിച്ചിലിന് ത്വക്ക് വിഭാഗത്തിൽ പരിശോധന, PRP, ട്രൈക്കോളജി കൺസൾട്ടേഷൻ എന്നിവ ലഭ്യമാണ്.");
+  if (containsOne(query, ["skin allergy", "eczema", "psoriasis", "vitiligo"])) return response("ചർമ്മ അലർജി, എക്സിമ, സോറിയാസിസ്, വിറ്റിലിഗോ, നഖരോഗങ്ങൾ എന്നിവയ്ക്ക് ത്വക്ക് വിഭാഗത്തിൽ കൺസൾട്ടേഷൻ ലഭ്യമാണ്.");
+  if (containsOne(query, ["fever"])) return response("പനി അല്ലെങ്കിൽ വൈറൽ പനിക്ക് ജനറൽ മെഡിസിൻ വിഭാഗം സന്ദർശിക്കുക.");
+  if (containsOne(query, ["diabetes"])) return response("പ്രമേഹ കൺസൾട്ടേഷനും റൂട്ടീൻ മോണിറ്ററിംഗും ജനറൽ മെഡിസിൻ വിഭാഗത്തിൽ ലഭ്യമാണ്.");
+  if (containsOne(query, ["hypertension", "blood pressure"])) return response("രക്തസമ്മർദ്ദവും ഹൈപ്പർടെൻഷനും സംബന്ധിച്ച കൺസൾട്ടേഷൻ ജനറൽ മെഡിസിൻ വിഭാഗത്തിൽ ലഭ്യമാണ്.");
+  if (containsOne(query, ["vaccination"])) return response("വാക്സിനേഷൻ സഹായം ജനറൽ മെഡിസിൻ വിഭാഗത്തിലൂടെ ലഭ്യമാണ്. ഷെഡ്യൂളിനും ലഭ്യതയ്ക്കും റിസപ്ഷനുമായി ബന്ധപ്പെടുക.");
+
+  if (containsOne(query, ["lab", "laboratory", "blood", "urine", "report", "sample"])) return response(`ലബോറട്ടറി സമയം: ${hospital.labTiming}\n\nരക്തപരിശോധന, യൂറിൻ പരിശോധന, സാമ്പിൾ ശേഖരണം, റിപ്പോർട്ട് ശേഖരണം എന്നിവയ്ക്ക് സഹായം ലഭ്യമാണ്. ലബോറട്ടറി ഗ്രൗണ്ട് ഫ്ലോറിൽ, റിസപ്ഷന് സമീപമാണ്.`);
+  if (containsOne(query, ["appointment", "book", "token", "consultation"])) return response("അപ്പോയിന്റ്മെന്റും വാക്ക്-ഇൻ കൺസൾട്ടേഷനും ലഭ്യമാണ്. നിലവിലെ ടോക്കൺ നില, ഫീസ്, കാത്തിരിപ്പ് സമയം, ഡോക്ടറുടെ ലഭ്യത എന്നിവയ്ക്ക് റിസപ്ഷനുമായി ബന്ധപ്പെടുക.");
+  if (containsOne(query, ["whatsapp"])) return response(`ലാമിയ ആശുപത്രിക്ക് WhatsApp സന്ദേശം അയയ്ക്കാം:\n\n${hospital.whatsapp}`);
+  if (containsOne(query, ["call", "phone", "contact", "number"])) return response(`ലാമിയ ആശുപത്രിയെ വിളിക്കുക:\n\nഫോൺ: ${hospital.phone}`);
+  if (containsOne(query, ["email", "mail"])) return response(`ഇമെയിൽ: ${hospital.email}`);
+  if (containsOne(query, ["instagram"])) return response("ലാമിയ ആശുപത്രിയുടെ അപ്ഡേറ്റുകൾക്കായി Instagram തുറക്കുക.");
+  if (containsOne(query, ["linkedin"])) return response("ലാമിയ ആശുപത്രിയുടെ പ്രൊഫഷണൽ അപ്ഡേറ്റുകൾക്കായി LinkedIn തുറക്കുക.");
+  if (containsOne(query, ["timing", "open", "close", "working", "hours"])) return response(`ആശുപത്രി സമയം: ${hospital.timing}\nലബോറട്ടറി സമയം: ${hospital.labTiming}`);
+  if (containsOne(query, ["location", "address", "google map", "maps", "near"])) return response(`സ്ഥലം: ${hospital.location}\n\nGoogle Maps-ൽ “Lamiya Hospital, Velichikkala, Kollam” എന്ന് തിരയുക.`);
+  if (containsOne(query, ["services", "facilities", "available", "care", "support"])) return response("ആശുപത്രി സേവനങ്ങളിൽ ലബോറട്ടറി, ഫാർമസി, ജനറൽ കൺസൾട്ടേഷൻ, ദന്ത-ത്വക്ക് കൺസൾട്ടേഷൻ, X-Ray, ECG, ഡ്രസ്സിംഗ്, ഇഞ്ചക്ഷൻ റൂം, മൈനർ OT, ഒബ്സർവേഷൻ റൂം, വാക്സിനേഷൻ, ഹെൽത്ത് ചെക്കപ്പ്, അടിയന്തര പരിചരണം, വീൽചെയർ സഹായം, പാർക്കിംഗ്, ലിഫ്റ്റ്, പ്രാർത്ഥനാമുറി എന്നിവ ഉൾപ്പെടുന്നു.");
+  if (containsOne(query, ["pharmacy", "medical store", "medicine", "tablet", "drug"])) return response("ഫാർമസി ഗ്രൗണ്ട് ഫ്ലോറിൽ എക്സിറ്റിന് സമീപമാണ്. മരുന്ന് വാങ്ങാൻ ഡോക്ടറുടെ പ്രിസ്ക്രിപ്ഷൻ കൊണ്ടുവരുക.");
+  if (containsOne(query, ["emergency", "urgent", "pain", "casualty", "minor ot", "observation"])) return response("അടിയന്തര പരിചരണത്തിന് നേരിട്ട് റിസപ്ഷനിലേക്ക് വരിക അല്ലെങ്കിൽ ആശുപത്രിയെ വിളിക്കുക. അടിയന്തര ദന്തപരിചരണം, ഡ്രസ്സിംഗ്, ഇഞ്ചക്ഷൻ റൂം, മൈനർ OT, ഒബ്സർവേഷൻ സഹായം ലഭ്യമാണ്.");
+  if (containsOne(query, ["careers", "job", "vacancy", "resume", "cv", "hr"])) return response(`നിലവിലെ ജോലി ഒഴിവുകൾക്കും റിസ്യൂമെ സമർപ്പിക്കാനുമായി ${hospital.email} എന്ന ഇമെയിലിലോ WhatsApp ${hospital.whatsapp} വഴിയോ ബന്ധപ്പെടുക.`);
+  if (containsOne(query, ["feedback", "complaint", "suggestion", "review"])) return response("ഫീഡ്ബാക്ക്, പരാതി, നിർദ്ദേശം എന്നിവയ്ക്ക് റിസപ്ഷനിലോ ആശുപത്രി ഓഫീസിലോ ബന്ധപ്പെടുക. നിങ്ങളുടെ അഭിപ്രായം സേവനം മെച്ചപ്പെടുത്താൻ സഹായിക്കുന്നു.");
+  if (containsOne(query, ["insurance", "claim", "cashless"])) return response("ഇൻഷുറൻസ്, ക്ലെയിം സംബന്ധമായ സഹായത്തിന് ബില്ലിംഗ് വിഭാഗത്തെയോ റിസപ്ഷനെയോ ബന്ധപ്പെടുക. ബില്ലിംഗ് ഗ്രൗണ്ട് ഫ്ലോറിൽ റിസപ്ഷന് എതിർവശത്താണ്.");
+  if (containsOne(query, ["admission", "admit", "discharge", "visiting hours", "visitor"])) return response("അഡ്മിഷൻ, ഡിസ്ചാർജ്, സന്ദർശനസമയം എന്നിവയ്ക്ക് റിസപ്ഷനുമായി ബന്ധപ്പെടുക. ഡോക്ടറുടെ നിർദ്ദേശവും നിലവിലെ ആശുപത്രി നയവും അനുസരിച്ച് ടീം വഴികാട്ടും.");
+  if (containsOne(query, ["wheelchair", "disabled", "elderly", "assistance"])) return response("വീൽചെയർ സഹായം ലഭ്യമാണ്. എത്തുമ്പോൾ റിസപ്ഷനിൽ അറിയിക്കുക.");
+
+  return response("ക്ഷമിക്കണം, അതിനെക്കുറിച്ചുള്ള വിവരം എനിക്ക് ഇപ്പോൾ ലഭ്യമല്ല. ലാമിയ ആശുപത്രി, ഡോക്ടർമാർ, വിഭാഗങ്ങൾ, സേവനങ്ങൾ, സമയങ്ങൾ, അപ്പോയിന്റ്മെന്റ്, ലബോറട്ടറി, അല്ലെങ്കിൽ ബന്ധപ്പെടാനുള്ള വിവരങ്ങൾ എന്നിവയെക്കുറിച്ച് ചോദിക്കൂ.");
+}
+
+function suggestionLabels() {
+  const english = ["Show all doctors", "Where is the laboratory?", "Book appointment", "Dental services", "Hair loss treatment", "Lab timing", "WhatsApp number", "Current vacancies"];
+  const malayalam = ["എല്ലാ ഡോക്ടർമാരെയും കാണിക്കുക", "ലബോറട്ടറി എവിടെയാണ്?", "അപ്പോയിന്റ്മെന്റ് എടുക്കുക", "ദന്തസേവനങ്ങൾ", "മുടി കൊഴിച്ചിൽ ചികിത്സ", "ലാബ് സമയം", "WhatsApp നമ്പർ", "നിലവിലെ ഒഴിവുകൾ"];
+  return (state.language === "ml" ? malayalam : english).map((label, index) => ({ label, query: english[index] }));
+}
+
+function applyLanguage(language) {
+  state.language = language === "ml" ? "ml" : "en";
+  localStorage.setItem("lamiya-language", state.language);
+  const ui = languageUi[state.language];
+  els.html.lang = state.language;
+  document.title = ui.assistantName;
+  els.languageSelect.value = state.language;
+  els.languageSelect.setAttribute("aria-label", state.language === "ml" ? "ഭാഷ തിരഞ്ഞെടുക്കുക" : "Choose language");
+  els.languageLabel.textContent = ui.language;
+  document.querySelector(".topbar .eyebrow").textContent = ui.brand;
+  document.querySelector(".topbar h1").textContent = ui.assistantName;
+  document.querySelector(".topbar > div:first-child > p:last-child").textContent = ui.tagline;
+  document.querySelector(".status-pill").lastChild.nodeValue = ` ${ui.offline}`;
+  document.querySelector(".chat-header .eyebrow").textContent = ui.chatEyebrow;
+  document.querySelector(".chat-header h2").textContent = ui.chatTitle;
+  document.querySelector("#clearChat span").textContent = ui.clear;
+  document.querySelector("#downloadChat span").textContent = ui.download;
+  els.clearChat.setAttribute("aria-label", ui.clear);
+  els.downloadChat.setAttribute("aria-label", ui.download);
+  document.querySelector(".search-box span").textContent = ui.search;
+  els.historySearch.placeholder = ui.searchPlaceholder;
+  els.input.placeholder = ui.inputPlaceholder;
+  document.querySelector(".send-button span").textContent = ui.send;
+  els.voiceInput.setAttribute("aria-label", state.language === "ml" ? "വോയ്സ് ഇൻപുട്ട്" : "Voice input");
+  els.speakToggle.setAttribute("aria-label", state.language === "ml" ? "വോയ്സ് ഔട്ട്പുട്ട്" : "Voice output");
+  document.querySelector(".app-footer").textContent = ui.footer;
+  document.querySelectorAll(".tool-row button").forEach((button, index) => {
+    button.textContent = ui.tools[index];
+    button.dataset.query = toolQueries[index];
+  });
+  renderSuggestions();
+  renderMessages();
+}
+
+function actionLabel(label, language) {
+  if (language !== "ml") return label;
+  return {
+    "Call Now": "ഇപ്പോൾ വിളിക്കുക",
+    "Open WhatsApp": "WhatsApp തുറക്കുക",
+    "Open Instagram": "Instagram തുറക്കുക",
+    "Open LinkedIn": "LinkedIn തുറക്കുക",
+    "Send Email": "ഇമെയിൽ അയയ്ക്കുക"
+  }[label] || label;
+}
+
+function localizedSystemMessage(english, malayalam) {
+  return state.language === "ml" ? malayalam : english;
 }
 
 function buildKnowledgeBase() {
@@ -1607,7 +1895,7 @@ function matchesAny(text, phrases) {
 function normalize(text) {
   return String(text)
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -1653,15 +1941,15 @@ function clearChat() {
   addAssistantMessage(welcomeMessage());
 }
 
-async function copyMessage(text, button) {
+async function copyMessage(text, button, language = "en") {
   try {
     await navigator.clipboard.writeText(text);
-    button.textContent = "Copied";
+    button.textContent = language === "ml" ? "പകർത്തി" : "Copied";
     setTimeout(() => {
-      button.textContent = "Copy";
+      button.textContent = language === "ml" ? "പകർത്തുക" : "Copy";
     }, 1200);
   } catch {
-    button.textContent = "Copy failed";
+    button.textContent = language === "ml" ? "പകർത്തൽ പരാജയപ്പെട്ടു" : "Copy failed";
   }
 }
 
@@ -1711,11 +1999,14 @@ function updateSpeechButton() {
 function startVoiceInput() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
-    addAssistantMessage("Voice input is not supported in this browser. You can still type your question.");
+    addAssistantMessage(localizedSystemMessage(
+      "Voice input is not supported in this browser. You can still type your question.",
+      "ഈ ബ്രൗസറിൽ വോയ്സ് ഇൻപുട്ട് പിന്തുണയ്ക്കുന്നില്ല. നിങ്ങളുടെ ചോദ്യം ടൈപ്പ് ചെയ്യാം."
+    ));
     return;
   }
   const recognition = new SpeechRecognition();
-  recognition.lang = "en-IN";
+  recognition.lang = state.language === "ml" ? "ml-IN" : "en-IN";
   recognition.interimResults = false;
   recognition.maxAlternatives = 1;
   els.voiceInput.classList.add("is-muted");
@@ -1725,13 +2016,19 @@ function startVoiceInput() {
     els.input.value = text;
     ask(text);
   };
-  recognition.onerror = () => addAssistantMessage("I could not hear that clearly. Please try again or type your question.");
+  recognition.onerror = () => addAssistantMessage(localizedSystemMessage(
+    "I could not hear that clearly. Please try again or type your question.",
+    "എനിക്ക് അത് വ്യക്തമായി കേൾക്കാനായില്ല. വീണ്ടും ശ്രമിക്കുകയോ ചോദ്യം ടൈപ്പ് ചെയ്യുകയോ ചെയ്യൂ."
+  ));
   recognition.onend = () => els.voiceInput.classList.remove("is-muted");
 }
 
 async function installApp() {
   if (!state.deferredInstall) {
-    addAssistantMessage("To install, open this page in a supported browser and choose Install or Add to Home Screen.");
+    addAssistantMessage(localizedSystemMessage(
+      "To install, open this page in a supported browser and choose Install or Add to Home Screen.",
+      "ഇൻസ്റ്റാൾ ചെയ്യാൻ ഈ പേജ് പിന്തുണയ്ക്കുന്ന ബ്രൗസറിൽ തുറന്ന് Install അല്ലെങ്കിൽ Add to Home Screen തിരഞ്ഞെടുക്കുക."
+    ));
     return;
   }
   state.deferredInstall.prompt();
@@ -1750,4 +2047,3 @@ console.info(`Lamiya AI Assistant loaded with ${knowledgeBase.reduce((total, ite
 </script>
   </body>
 </html>
-
